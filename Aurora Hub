@@ -1,123 +1,85 @@
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
+-- Aurora Hub | Auto Parry + Visualizer
+-- Made for Blade Ball (Mobile + PC)
 
-local function checkToSConfirmed()
-    local success = pcall(function()
-        return readfile("nodex_confirm_tos.txt")
-    end)
-    return success
-end
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
-local function createToSFile()
-    local success = pcall(function()
-        writefile("nodex_confirm_tos.txt", "confirmed")
-    end)
-    return success
-end
+local Player = Players.LocalPlayer
 
--- MAIN SCRIPT (RAYFIELD MENU)
-local function executeMain()
+task.wait(1)
 
-    local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+StarterGui:SetCore("SendNotification",{
+    Title = "Aurora Hub",
+    Text = "Auto Parry Activated",
+    Icon = "rbxassetid://135351041318579",
+    Duration = 8
+})
 
-    local Window = Rayfield:CreateWindow({
-        Name = "Aurora Hub | Bóng Lưỡi",
-        LoadingTitle = "Rayfield UI System",
-        LoadingSubtitle = "by trinhvanhai21",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "AuroraHubConfigs",
-            FileName = "SoloConfigFix"
-        }
-    })
+-- Visualizer
+loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
 
-end
+local Parried = false
+local Connection
 
-if checkToSConfirmed() then
-    executeMain()
-else
-
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "NodeX_ToS"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
-    local player = game:GetService("Players").LocalPlayer
-    screenGui.Parent = player and player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
-    
-    local overlay = Instance.new("Frame")
-    overlay.Size = UDim2.new(1,0,1,0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    overlay.BackgroundTransparency = 0.5
-    overlay.Parent = screenGui
-    
-    local popup = Instance.new("Frame")
-    popup.Size = UDim2.new(0,380,0,240)
-    popup.Position = UDim2.new(0.5,-190,0.5,-120)
-    popup.BackgroundColor3 = Color3.fromRGB(25,25,25)
-    popup.BorderSizePixel = 0
-    popup.Parent = screenGui
-    
-    local corner = Instance.new("UICorner", popup)
-    corner.CornerRadius = UDim.new(0,8)
-    
-    local titleBar = Instance.new("Frame")
-    titleBar.Size = UDim2.new(1,0,0,40)
-    titleBar.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    titleBar.Parent = popup
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,-45,1,0)
-    title.Position = UDim2.new(0,15,0,0)
-    title.BackgroundTransparency = 1
-    title.Text = "Terms of Service"
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = titleBar
-    
-    local message = Instance.new("TextLabel")
-    message.Size = UDim2.new(1,-30,0,60)
-    message.Position = UDim2.new(0,15,0,60)
-    message.BackgroundTransparency = 1
-    message.Text = "By continuing you agree to the Terms of Service"
-    message.TextColor3 = Color3.fromRGB(220,220,220)
-    message.Font = Enum.Font.Gotham
-    message.TextSize = 14
-    message.TextWrapped = true
-    message.Parent = popup
-    
-    local continueBtn = Instance.new("TextButton")
-    continueBtn.Size = UDim2.new(0,140,0,40)
-    continueBtn.Position = UDim2.new(0,20,1,-60)
-    continueBtn.BackgroundColor3 = Color3.fromRGB(0,120,255)
-    continueBtn.Text = "Continue"
-    continueBtn.TextColor3 = Color3.fromRGB(255,255,255)
-    continueBtn.Font = Enum.Font.GothamBold
-    continueBtn.TextSize = 14
-    continueBtn.Parent = popup
-    
-    local cancelBtn = Instance.new("TextButton")
-    cancelBtn.Size = UDim2.new(0,100,0,40)
-    cancelBtn.Position = UDim2.new(1,-120,1,-60)
-    cancelBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    cancelBtn.Text = "Cancel"
-    cancelBtn.TextColor3 = Color3.fromRGB(255,255,255)
-    cancelBtn.Font = Enum.Font.Gotham
-    cancelBtn.TextSize = 14
-    cancelBtn.Parent = popup
-
-    continueBtn.MouseButton1Click:Connect(function()
-        if createToSFile() then
-            screenGui:Destroy()
-            executeMain()
+local function GetBall()
+    for _, Ball in ipairs(workspace.Balls:GetChildren()) do
+        if Ball:GetAttribute("realBall") then
+            return Ball
         end
-    end)
-
-    cancelBtn.MouseButton1Click:Connect(function()
-        screenGui:Destroy()
-    end)
-
+    end
 end
+
+local function ResetConnection()
+    if Connection then
+        Connection:Disconnect()
+        Connection = nil
+    end
+end
+
+workspace.Balls.ChildAdded:Connect(function()
+    local Ball = GetBall()
+    if not Ball then return end
+
+    ResetConnection()
+
+    Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
+        Parried = false
+    end)
+end)
+
+RunService.PreSimulation:Connect(function()
+
+    local Ball = GetBall()
+    local Character = Player.Character
+
+    if not Ball or not Character then return end
+
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+    if not HRP then return end
+
+    local Speed = Ball.zoomies.VectorVelocity.Magnitude
+    local Distance = (HRP.Position - Ball.Position).Magnitude
+
+    if Ball:GetAttribute("target") == Player.Name and not Parried then
+        if Distance / Speed <= 0.55 then
+
+            VirtualInputManager:SendMouseButtonEvent(
+                0,
+                0,
+                0,
+                true,
+                game,
+                0
+            )
+
+            Parried = true
+
+            task.delay(1,function()
+                Parried = false
+            end)
+
+        end
+    end
+end)
