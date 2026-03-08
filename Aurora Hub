@@ -1,85 +1,225 @@
--- Aurora Hub | Auto Parry + Visualizer
--- Made for Blade Ball (Mobile + PC)
-
-local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
 
-local Player = Players.LocalPlayer
+local lp = Players.LocalPlayer
+local Balls = Workspace:WaitForChild("Balls")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local parryRemote = Remotes:WaitForChild("ParryButtonPress")
 
-task.wait(1)
+local Settings = {
+    ParryDist = 35, HitDist = 25, Predict = 0.08,
+    Debug = false, Parry = false, Hit = false, Viz = false
+}
 
-StarterGui:SetCore("SendNotification",{
-    Title = "Aurora Hub",
-    Text = "Auto Parry Activated",
-    Icon = "rbxassetid://135351041318579",
-    Duration = 8
-})
+local circleViz = nil
 
--- Visualizer
-loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
+local function createViz()
+    if circleViz then circleViz:Destroy() end
+    circleViz = Instance.new("Part")
+    circleViz.Name = "Viz"
+    circleViz.Parent = Workspace
+    circleViz.Anchored = true
+    circleViz.CanCollide = false
+    circleViz.Shape = Enum.PartType.Cylinder
+    circleViz.Size = Vector3.new(1,0.1,1)
+    circleViz.Material = Enum.Material.Neon
+    circleViz.BrickColor = BrickColor.new("Bright red")
+    circleViz.Transparency = 0.3
+    Instance.new("SpecialMesh", circleViz).MeshType = Enum.MeshType.Cylinder
+end
 
-local Parried = false
-local Connection
-
-local function GetBall()
-    for _, Ball in ipairs(workspace.Balls:GetChildren()) do
-        if Ball:GetAttribute("realBall") then
-            return Ball
+local function getBall()
+    for _,b in Balls:GetChildren() do
+        if b:IsA("BasePart") and b:GetAttribute("realBall") and b:GetAttribute("target") == lp.Name and b:FindFirstChild("zoomies") then
+            return b
         end
     end
 end
 
-local function ResetConnection()
-    if Connection then
-        Connection:Disconnect()
-        Connection = nil
-    end
-end
-
-workspace.Balls.ChildAdded:Connect(function()
-    local Ball = GetBall()
-    if not Ball then return end
-
-    ResetConnection()
-
-    Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
-        Parried = false
+local conn
+local function loop()
+    if conn then conn:Disconnect() end
+    conn = RunService.Heartbeat:Connect(function()
+        if not (Settings.Parry or Settings.Hit) then
+            if circleViz then circleViz.Visible = false end
+            return
+        end
+        local char = lp.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local root = char.HumanoidRootPart
+        local ball = getBall()
+        if ball and Settings.Viz then
+            circleViz.Position = ball.Position + Vector3.new(0,2,0)
+            local vel = ball.zoomies.VectorVelocity.Magnitude
+            local size = math.clamp(100/vel, 5, 50)
+            circleViz.Size = Vector3.new(size, 0.1, size)
+            circleViz.Visible = true
+            circleViz.BrickColor = ( (ball.Position - root.Position).Magnitude <= Settings.ParryDist ) and BrickColor.new("Bright green") or BrickColor.new("Bright red")
+        elseif circleViz then circleViz.Visible = false end
+        if ball then
+            local vel = ball.zoomies.VectorVelocity
+            local dist = (ball.Position - root.Position).Magnitude
+            local t = dist / vel.Magnitude
+            local pred = ball.Position + vel * (t + Settings.Predict)
+            local pDist = (pred - root.Position).Magnitude
+            if Settings.Parry and pDist <= Settings.ParryDist then parryRemote:FireServer() end
+            if Settings.Hit and pDist <= Settings.HitDist then parryRemote:FireServer() end
+        end
     end)
+end
+
+-- GUI
+local sg = Instance.new("ScreenGui", lp:WaitForChild("PlayerGui"))
+sg.Name = "BBGod"
+sg.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", sg)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,35)
+frame.Position = UDim2.new(0.5,-170,0.3,-145)
+frame.Size = UDim2.new(0,340,0,290)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
+Instance.new("UIStroke", frame).Color = Color3.fromRGB(255,0,0)
+
+local tb = Instance.new("Frame", frame)
+tb.BackgroundColor3 = Color3.fromRGB(15,15,25)
+tb.Size = UDim2.new(1,0,0,45)
+Instance.new("UICorner", tb).CornerRadius = UDim.new(0,12)
+
+local title = Instance.new("TextLabel", tb)
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1,-80,1,0)
+title.Font = Enum.Font.GothamBold
+title.Text = "Blade Ball GOD + Viz"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 15
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local minBtn = Instance.new("TextButton", tb)
+minBtn.BackgroundColor3 = Color3.fromRGB(60,60,70)
+minBtn.Position = UDim2.new(1,-65,0,10)
+minBtn.Size = UDim2.new(0,25,0,25)
+minBtn.Text = "−"
+minBtn.TextColor3 = Color3.new(1,1,1)
+minBtn.TextSize = 18
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0,6)
+
+local closeBtn = Instance.new("TextButton", tb)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220,50,50)
+closeBtn.Position = UDim2.new(1,-35,0,10)
+closeBtn.Size = UDim2.new(0,25,0,25)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.TextSize = 16
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0,6)
+
+local cont = Instance.new("Frame", frame)
+cont.BackgroundTransparency = 1
+cont.Position = UDim2.new(0,10,0,55)
+cont.Size = UDim2.new(1,-20,1,-65)
+
+local status = Instance.new("TextLabel", cont)
+status.BackgroundColor3 = Color3.fromRGB(60,60,70)
+status.Size = UDim2.new(1,0,0,35)
+status.Font = Enum.Font.GothamSemibold
+status.Text = "TẤT CẢ TẮT"
+status.TextColor3 = Color3.fromRGB(255,100,100)
+status.TextSize = 13
+Instance.new("UICorner", status).CornerRadius = UDim.new(0,8)
+
+local pToggle = Instance.new("TextButton", cont)
+pToggle.BackgroundColor3 = Color3.fromRGB(60,60,70)
+pToggle.Position = UDim2.new(0,0,0,45)
+pToggle.Size = UDim2.new(0.48,0,0,35)
+pToggle.Font = Enum.Font.GothamBold
+pToggle.Text = "PARRY: TẮT"
+pToggle.TextColor3 = Color3.fromRGB(200,200,200)
+pToggle.TextSize = 11
+Instance.new("UICorner", pToggle).CornerRadius = UDim.new(0,8)
+
+local hToggle = Instance.new("TextButton", cont)
+hToggle.BackgroundColor3 = Color3.fromRGB(60,60,70)
+hToggle.Position = UDim2.new(0.52,0,0,45)
+hToggle.Size = UDim2.new(0.48,0,0,35)
+hToggle.Font = Enum.Font.GothamBold
+hToggle.Text = "HIT: TẮT"
+hToggle.TextColor3 = Color3.fromRGB(200,200,200)
+hToggle.TextSize = 11
+Instance.new("UICorner", hToggle).CornerRadius = UDim.new(0,8)
+
+local vToggle = Instance.new("TextButton", cont)
+vToggle.BackgroundColor3 = Color3.fromRGB(60,60,70)
+vToggle.Position = UDim2.new(0,0,0,85)
+vToggle.Size = UDim2.new(1,0,0,35)
+vToggle.Font = Enum.Font.GothamBold
+vToggle.Text = "CIRCLE VIZ: TẮT"
+vToggle.TextColor3 = Color3.fromRGB(200,200,200)
+vToggle.TextSize = 12
+Instance.new("UICorner", vToggle).CornerRadius = UDim.new(0,8)
+
+local dbg = Instance.new("TextButton", cont)
+dbg.BackgroundColor3 = Color3.fromRGB(60,60,70)
+dbg.Position = UDim2.new(0,0,0,225)
+dbg.Size = UDim2.new(1,0,0,30)
+dbg.Font = Enum.Font.Gotham
+dbg.Text = "Debug: TẮT"
+dbg.TextColor3 = Color3.fromRGB(200,200,200)
+dbg.TextSize = 12
+Instance.new("UICorner", dbg).CornerRadius = UDim.new(0,6)
+
+pToggle.MouseButton1Click:Connect(function()
+    Settings.Parry = not Settings.Parry
+    pToggle.Text = "PARRY: "..(Settings.Parry and "BẬT" or "TẮT")
+    pToggle.BackgroundColor3 = Settings.Parry and Color3.fromRGB(0,162,255) or Color3.fromRGB(60,60,70)
+    pToggle.TextColor3 = Settings.Parry and Color3.new(1,1,1) or Color3.fromRGB(200,200,200)
+    loop()
 end)
 
-RunService.PreSimulation:Connect(function()
+hToggle.MouseButton1Click:Connect(function()
+    Settings.Hit = not Settings.Hit
+    hToggle.Text = "HIT: "..(Settings.Hit and "BẬT" or "TẮT")
+    hToggle.BackgroundColor3 = Settings.Hit and Color3.fromRGB(255,0,0) or Color3.fromRGB(60,60,70)
+    hToggle.TextColor3 = Settings.Hit and Color3.new(1,1,1) or Color3.fromRGB(200,200,200)
+    loop()
+end)
 
-    local Ball = GetBall()
-    local Character = Player.Character
+vToggle.MouseButton1Click:Connect(function()
+    Settings.Viz = not Settings.Viz
+    vToggle.Text = "CIRCLE VIZ: "..(Settings.Viz and "BẬT" or "TẮT")
+    vToggle.BackgroundColor3 = Settings.Viz and Color3.fromRGB(100,255,100) or Color3.fromRGB(60,60,70)
+    vToggle.TextColor3 = Settings.Viz and Color3.new(1,1,1) or Color3.fromRGB(200,200,200)
+    if Settings.Viz then createViz() end
+    loop()
+end)
 
-    if not Ball or not Character then return end
+dbg.MouseButton1Click:Connect(function()
+    Settings.Debug = not Settings.Debug
+    dbg.Text = "Debug: "..(Settings.Debug and "BẬT" or "TẮT")
+    dbg.TextColor3 = Settings.Debug and Color3.fromRGB(255,255,0) or Color3.fromRGB(200,200,200)
+end)
 
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
-
-    local Speed = Ball.zoomies.VectorVelocity.Magnitude
-    local Distance = (HRP.Position - Ball.Position).Magnitude
-
-    if Ball:GetAttribute("target") == Player.Name and not Parried then
-        if Distance / Speed <= 0.55 then
-
-            VirtualInputManager:SendMouseButtonEvent(
-                0,
-                0,
-                0,
-                true,
-                game,
-                0
-            )
-
-            Parried = true
-
-            task.delay(1,function()
-                Parried = false
-            end)
-
-        end
+local min = false
+minBtn.MouseButton1Click:Connect(function()
+    min = not min
+    if min then
+        TweenService:Create(frame, TweenInfo.new(0.3), {Size = UDim2.new(0,340,0,45)}):Play()
+        cont.Visible = false
+        minBtn.Text = "+"
+    else
+        TweenService:Create(frame, TweenInfo.new(0.3), {Size = UDim2.new(0,340,0,290)}):Play()
+        cont.Visible = true
+        minBtn.Text = "−"
     end
 end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    if conn then conn:Disconnect() end
+    if circleViz then circleViz:Destroy() end
+    sg:Destroy()
+end)
+
+game.StarterGui:SetCore("SendNotification",{Title="GOD + VIZ",Text="Mặc định tắt - Bật trong menu",Duration=4})
