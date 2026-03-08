@@ -1,68 +1,228 @@
-local starterGUI = game:GetService("StarterGui")
-local player = game.Players.LocalPlayer
+-- Aurora Hub | by tiktok trinhvanhai21 - Mobile Optimized
+-- Auto Parry + Visualizer (giữ nguyên gốc) + Draggable Toggle GUI
+
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
 wait(1)
 
-starterGUI:SetCore("SendNotification", {
-	Title = "NoEnemiesHub",
-	Text = "Auto Parry Executed (by tiktok: trinhvanhai21.)",
-	Icon = "rbxassetid://135351041318579",
-	Duration = 10,
-        Button1 = "OK"
+StarterGui:SetCore("SendNotification", {
+    Title = "Aurora Hub | by tiktok trinhvanhai21",
+    Text = "Loaded on Mobile!\nToggle Auto Parry in GUI\n(Draggable by touch on title)",
+    Icon = "rbxassetid://135351041318579",
+    Duration = 8
 })
 
+-- Load visualizer + core từ script gốc (không thay đổi)
 loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
 
-local RunService = game:GetService("RunService") or game:FindFirstDescendant("RunService")
-local Players = game:GetService("Players") or game:FindFirstDescendant("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager") or game:FindFirstDescendant("VirtualInputManager")
+-- GUI Aurora (nhỏ gọn hơn cho mobile)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AuroraHubGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = playerGui
 
-local Player = Players.LocalPlayer
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 110)  -- Nhỏ hơn cho mobile
+MainFrame.Position = UDim2.new(0.5, -100, 0.15, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 10, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
 
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 18)
+UICorner.Parent = MainFrame
+
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 100, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 120, 200))
+}
+UIGradient.Rotation = 40
+UIGradient.Parent = MainFrame
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(120, 220, 255)
+Stroke.Thickness = 2.8
+Stroke.Transparency = 0.35
+Stroke.Parent = MainFrame
+
+-- Title
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Aurora Hub"
+Title.TextColor3 = Color3.fromRGB(220, 240, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBlack
+Title.Parent = TitleBar
+
+local Credit = Instance.new("TextLabel")
+Credit.Size = UDim2.new(1, 0, 0, 14)
+Credit.Position = UDim2.new(0, 0, 0, 20)
+Credit.BackgroundTransparency = 1
+Credit.Text = "by tiktok trinhvanhai21"
+Credit.TextColor3 = Color3.fromRGB(180, 180, 255)
+Credit.TextSize = 12
+Credit.Font = Enum.Font.Gotham
+Credit.Parent = TitleBar
+
+-- Status
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -10, 0, 25)
+Status.Position = UDim2.new(0, 5, 0, 45)
+Status.BackgroundTransparency = 1
+Status.Text = "Auto Parry: OFF"
+Status.TextColor3 = Color3.fromRGB(255, 90, 90)
+Status.TextSize = 15
+Status.Font = Enum.Font.GothamSemibold
+Status.Parent = MainFrame
+
+-- Toggle Button (lớn hơn cho touch dễ nhấn)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 160, 0, 45)
+ToggleBtn.Position = UDim2.new(0.5, -80, 1, -55)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 20, 50)
+ToggleBtn.Text = "ENABLE"
+ToggleBtn.TextColor3 = Color3.fromRGB(220, 220, 255)
+ToggleBtn.TextSize = 17
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Parent = MainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 12)
+btnCorner.Parent = ToggleBtn
+
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Color = Color3.fromRGB(100, 200, 255)
+btnStroke.Thickness = 2
+btnStroke.Parent = ToggleBtn
+
+-- Draggable - Tối ưu cho Touch (mobile)
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateInput(input)
+    end
+end)
+
+-- Toggle
+local AutoParryEnabled = false
+
+local function updateUI()
+    if AutoParryEnabled then
+        Status.Text = "Auto Parry: ON"
+        Status.TextColor3 = Color3.fromRGB(90, 255, 140)
+        ToggleBtn.Text = "DISABLE"
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(30, 70, 50)}):Play()
+    else
+        Status.Text = "Auto Parry: OFF"
+        Status.TextColor3 = Color3.fromRGB(255, 90, 90)
+        ToggleBtn.Text = "ENABLE"
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(25, 20, 50)}):Play()
+    end
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    AutoParryEnabled = not AutoParryEnabled
+    updateUI()
+end)
+
+ToggleBtn.TouchTap:Connect(function()  -- Thêm cho mobile touch
+    AutoParryEnabled = not AutoParryEnabled
+    updateUI()
+end)
+
+-- Auto Parry logic (giữ nguyên gốc, chỉ chạy khi bật)
 local Cooldown = tick()
-local IsParried = false
+local Parried = false
 local Connection = nil
 
 local function GetBall()
-  for _, Ball in ipairs(workspace.Balls:GetChildren()) do
-    if Ball:GetAttribute("realBall") then
-      return Ball
+    for _, Ball in ipairs(workspace.Balls:GetChildren()) do
+        if Ball:GetAttribute("realBall") then
+            return Ball
+        end
     end
-  end
 end
 
 local function ResetConnection()
-    if Connection then
-        Connection:Disconnect()
-        Connection = nil
-    end
+    if Connection then Connection:Disconnect() Connection = nil end
 end
 
 workspace.Balls.ChildAdded:Connect(function()
+    task.wait(0.1)
     local Ball = GetBall()
-    if not Ball then return end
-    ResetConnection()
-    Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
-        Parried = false
-    end)
+    if Ball then
+        ResetConnection()
+        Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
+            Parried = false
+        end)
+    end
 end)
 
 RunService.PreSimulation:Connect(function()
-    local Ball, HRP = GetBall(), Player.Character.HumanoidRootPart
-    if not Ball or not HRP then
-      return
-    end
+    if not AutoParryEnabled then return end
     
-    local Speed = Ball.zoomies.VectorVelocity.Magnitude
+    local Ball = GetBall()
+    local HRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not Ball or not HRP then return end
+    
+    local Speed = Ball.zoomies and Ball.zoomies.VectorVelocity.Magnitude or 0
     local Distance = (HRP.Position - Ball.Position).Magnitude
     
-    if Ball:GetAttribute("target") == Player.Name and not Parried and Distance / Speed <= 0.55 then
-      VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-      Parried = true
-      Cooldown = tick()
-      
-      if (tick() - Cooldown) >= 1 then
-        Partied = false
-      end
+    if Ball:GetAttribute("target") == player.Name and not Parried and Speed > 0 and Distance / Speed <= 0.55 then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.025)  -- Timing mượt hơn mobile
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        
+        Parried = true
+        Cooldown = tick()
+    end
+    
+    if Parried and tick() - Cooldown >= 0.9 then
+        Parried = false
     end
 end)
+
+print("Aurora Hub Mobile Ready!")
