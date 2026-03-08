@@ -1,257 +1,68 @@
--- Aurora Blade Ball Full Script
+local starterGUI = game:GetService("StarterGui")
+local player = game.Players.LocalPlayer
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+wait(1)
 
-local lp = Players.LocalPlayer
-local Balls = Workspace:WaitForChild("Balls")
-local parryRemote = ReplicatedStorage.Remotes:WaitForChild("ParryButtonPress")
+starterGUI:SetCore("SendNotification", {
+	Title = "NoEnemiesHub",
+	Text = "Auto Parry Executed (We also added visualizer.)",
+	Icon = "rbxassetid://135351041318579",
+	Duration = 10,
+        Button1 = "OK"
+})
 
-local Settings = {
-    AutoParry = false,
-    AutoSpam = false,
-    Viz = false,
-    PlayerCheck = true,
+loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
 
-    BaseRange = 22,
-    PlayerRange = 10
-}
+local RunService = game:GetService("RunService") or game:FindFirstDescendant("RunService")
+local Players = game:GetService("Players") or game:FindFirstDescendant("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager") or game:FindFirstDescendant("VirtualInputManager")
 
-local lastParry = 0
-local circle
+local Player = Players.LocalPlayer
 
--- tạo vòng tròn
-local function createCircle()
+local Cooldown = tick()
+local IsParried = false
+local Connection = nil
 
-    if circle then
-        circle:Destroy()
+local function GetBall()
+  for _, Ball in ipairs(workspace.Balls:GetChildren()) do
+    if Ball:GetAttribute("realBall") then
+      return Ball
     end
-
-    circle = Instance.new("Part")
-    circle.Name = "ParryCircle"
-    circle.Shape = Enum.PartType.Cylinder
-    circle.Anchored = true
-    circle.CanCollide = false
-    circle.Material = Enum.Material.Neon
-    circle.Color = Color3.fromRGB(0,255,150)
-    circle.Transparency = 0.35
-    circle.Size = Vector3.new(25,0.1,25)
-    circle.Parent = Workspace
-
+  end
 end
 
--- detect bóng
-local function getBall()
-
-    for _,ball in pairs(Balls:GetChildren()) do
-
-        if ball:IsA("BasePart") then
-
-            local target = ball:GetAttribute("target")
-
-            if target == lp.Name then
-                return ball
-            end
-
-        end
-
+local function ResetConnection()
+    if Connection then
+        Connection:Disconnect()
+        Connection = nil
     end
-
 end
 
--- detect player gần
-local function enemyNear(root)
-
-    for _,plr in pairs(Players:GetPlayers()) do
-
-        if plr ~= lp and plr.Character then
-
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-
-            if hrp then
-
-                local dist = (hrp.Position - root.Position).Magnitude
-
-                if dist < Settings.PlayerRange then
-                    return true
-                end
-
-            end
-
-        end
-
-    end
-
-end
-
--- loop chính
-RunService.RenderStepped:Connect(function()
-
-    if not Settings.AutoParry then return end
-
-    local char = lp.Character
-    if not char then return end
-
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    local ball = getBall()
-    if not ball then return end
-
-    local vel = ball.AssemblyLinearVelocity
-    local speed = vel.Magnitude
-
-    if speed < 1 then return end
-
-    local ballPos = ball.Position
-    local playerPos = root.Position
-
-    local dist = (ballPos - playerPos).Magnitude
-
-    -- kiểm tra hướng bóng
-    local direction = (playerPos - ballPos).Unit
-    local dot = vel.Unit:Dot(direction)
-
-    -- chỉ parry khi bóng bay về phía mình
-    if dot > 0.6 then
-
-        local predict = ballPos + vel * (dist / speed)
-        local predictedDist = (predict - playerPos).Magnitude
-
-        local dynamicRange = Settings.BaseRange + math.clamp(speed/12,0,15)
-
-        -- vòng tròn
-        if Settings.Viz and circle then
-
-            circle.Position = root.Position - Vector3.new(0,3,0)
-            circle.Size = Vector3.new(dynamicRange*2,0.1,dynamicRange*2)
-
-            if predictedDist <= dynamicRange then
-                circle.Color = Color3.fromRGB(0,255,0)
-            else
-                circle.Color = Color3.fromRGB(255,0,0)
-            end
-
-        end
-
-        -- player áp sát
-        if Settings.PlayerCheck and enemyNear(root) then
-
-            if tick() - lastParry > 0.12 then
-
-                lastParry = tick()
-                parryRemote:FireServer()
-
-            end
-
-        end
-
-        -- parry bóng
-        if predictedDist <= dynamicRange then
-
-            if tick() - lastParry > 0.12 then
-
-                lastParry = tick()
-                parryRemote:FireServer()
-
-                if Settings.AutoSpam then
-
-                    task.spawn(function()
-
-                        for i=1,3 do
-                            parryRemote:FireServer()
-                            task.wait(0.03)
-                        end
-
-                    end)
-
-                end
-
-            end
-
-        end
-
-    end
-
+workspace.Balls.ChildAdded:Connect(function()
+    local Ball = GetBall()
+    if not Ball then return end
+    ResetConnection()
+    Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
+        Parried = false
+    end)
 end)
 
--- GUI
-local gui = Instance.new("ScreenGui")
-gui.Parent = game.CoreGui
-
-local frame = Instance.new("Frame",gui)
-frame.Size = UDim2.new(0,320,0,260)
-frame.Position = UDim2.new(0.5,-160,0.3,0)
-frame.BackgroundColor3 = Color3.fromRGB(30,30,40)
-frame.Active = true
-frame.Draggable = true
-
-Instance.new("UICorner",frame)
-
-local title = Instance.new("TextLabel",frame)
-title.Size = UDim2.new(1,0,0,40)
-title.Text = "Aurora Blade Ball"
-title.BackgroundTransparency = 1
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 16
-
-local parryBtn = Instance.new("TextButton",frame)
-parryBtn.Size = UDim2.new(0.8,0,0,40)
-parryBtn.Position = UDim2.new(0.1,0,0.25,0)
-parryBtn.Text = "AUTO PARRY: OFF"
-
-local spamBtn = Instance.new("TextButton",frame)
-spamBtn.Size = UDim2.new(0.8,0,0,40)
-spamBtn.Position = UDim2.new(0.1,0,0.45,0)
-spamBtn.Text = "AUTO SPAM: OFF"
-
-local vizBtn = Instance.new("TextButton",frame)
-vizBtn.Size = UDim2.new(0.8,0,0,40)
-vizBtn.Position = UDim2.new(0.1,0,0.65,0)
-vizBtn.Text = "CIRCLE VIZ: OFF"
-
-local closeBtn = Instance.new("TextButton",frame)
-closeBtn.Size = UDim2.new(0.3,0,0,30)
-closeBtn.Position = UDim2.new(0.35,0,0.85,0)
-closeBtn.Text = "CLOSE"
-
-parryBtn.MouseButton1Click:Connect(function()
-
-    Settings.AutoParry = not Settings.AutoParry
-    parryBtn.Text = "AUTO PARRY: "..(Settings.AutoParry and "ON" or "OFF")
-
-end)
-
-spamBtn.MouseButton1Click:Connect(function()
-
-    Settings.AutoSpam = not Settings.AutoSpam
-    spamBtn.Text = "AUTO SPAM: "..(Settings.AutoSpam and "ON" or "OFF")
-
-end)
-
-vizBtn.MouseButton1Click:Connect(function()
-
-    Settings.Viz = not Settings.Viz
-    vizBtn.Text = "CIRCLE VIZ: "..(Settings.Viz and "ON" or "OFF")
-
-    if Settings.Viz then
-        createCircle()
-    elseif circle then
-        circle:Destroy()
-        circle = nil
+RunService.PreSimulation:Connect(function()
+    local Ball, HRP = GetBall(), Player.Character.HumanoidRootPart
+    if not Ball or not HRP then
+      return
     end
-
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-
-    if circle then
-        circle:Destroy()
+    
+    local Speed = Ball.zoomies.VectorVelocity.Magnitude
+    local Distance = (HRP.Position - Ball.Position).Magnitude
+    
+    if Ball:GetAttribute("target") == Player.Name and not Parried and Distance / Speed <= 0.55 then
+      VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+      Parried = true
+      Cooldown = tick()
+      
+      if (tick() - Cooldown) >= 1 then
+        Partied = false
+      end
     end
-
-    gui:Destroy()
-
 end)
