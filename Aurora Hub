@@ -82,122 +82,88 @@ close.MouseButton1Click:Connect(function()
 	frame.Visible = false
 end)
 
--- drag
-local dragging
-local dragStart
-local startPos
+-- DRAG FUNCTION
+local function dragify(object)
 
-frame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
+	local dragToggle = nil
+	local dragInput
+	local dragStart
+	local startPos
 
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
+	object.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragToggle = true
+			dragStart = input.Position
+			startPos = object.Position
 
-UIS.InputChanged:Connect(function(input)
-	if dragging then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale,startPos.X.Offset + delta.X,startPos.Y.Scale,startPos.Y.Offset + delta.Y)
-	end
-end)
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragToggle = false
+				end
+			end)
+		end
+	end)
+
+	object.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(input)
+		if input == dragInput and dragToggle then
+			local delta = input.Position - dragStart
+			object.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+
+end
+
+dragify(frame)
+dragify(open)
 
 -- toggle state
 local Enabled = false
+local ScriptLoaded = false
 
 toggle.MouseButton1Click:Connect(function()
+
 	Enabled = not Enabled
 
 	if Enabled then
+
 		toggle.Text = "Auto Parry : ON"
 		toggle.BackgroundColor3 = Color3.fromRGB(30,70,40)
+
+		if not ScriptLoaded then
+			ScriptLoaded = true
+
+			local starterGUI = game:GetService("StarterGui")
+
+			wait(1)
+
+			starterGUI:SetCore("SendNotification", {
+				Title = "NoEnemiesHub",
+				Text = "Auto Parry Executed (We also added visualizer.)",
+				Icon = "rbxassetid://135351041318579",
+				Duration = 10,
+				Button1 = "OK"
+			})
+
+			loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
+
+		end
+
 	else
+
 		toggle.Text = "Auto Parry : OFF"
 		toggle.BackgroundColor3 = Color3.fromRGB(60,30,30)
-	end
-end)
 
--- ===================
--- CODE BẠN (GIỮ NGUYÊN)
--- ===================
-
-local starterGUI = game:GetService("StarterGui")
-
-wait(1)
-
-starterGUI:SetCore("SendNotification", {
-	Title = "NoEnemiesHub",
-	Text = "Auto Parry Executed (We also added visualizer.)",
-	Icon = "rbxassetid://135351041318579",
-	Duration = 10,
-	Button1 = "OK"
-})
-
-loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
-local Player = Players.LocalPlayer
-
-local Cooldown = tick()
-local Parried = false
-local Connection = nil
-
-local function GetBall()
-	for _, Ball in ipairs(workspace.Balls:GetChildren()) do
-		if Ball:GetAttribute("realBall") then
-			return Ball
-		end
-	end
-end
-
-local function ResetConnection()
-	if Connection then
-		Connection:Disconnect()
-		Connection = nil
-	end
-end
-
-workspace.Balls.ChildAdded:Connect(function()
-	local Ball = GetBall()
-	if not Ball then return end
-	ResetConnection()
-	Connection = Ball:GetAttributeChangedSignal("target"):Connect(function()
-		Parried = false
-	end)
-end)
-
-RunService.PreSimulation:Connect(function()
-
-	if not Enabled then return end
-
-	local Ball = GetBall()
-	local HRP = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-
-	if not Ball or not HRP then
-		return
 	end
 
-	local Speed = Ball.zoomies.VectorVelocity.Magnitude
-	local Distance = (HRP.Position - Ball.Position).Magnitude
-
-	if Ball:GetAttribute("target") == Player.Name and not Parried and Distance / Speed <= 0.55 then
-
-		VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-
-		Parried = true
-		Cooldown = tick()
-
-		if (tick() - Cooldown) >= 1 then
-			Parried = false
-		end
-	end
 end)
