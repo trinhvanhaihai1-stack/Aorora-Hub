@@ -1,4 +1,5 @@
--- Aurora Hub Menu
+-- Aurora Hub Menu | by tiktok trinhvanhai21
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 
@@ -7,9 +8,9 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- GUI
 local gui = Instance.new("ScreenGui")
-gui.Parent = playerGui
-gui.ResetOnSpawn = false
 gui.Name = "AuroraHub"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
 
 -- open button
 local open = Instance.new("TextButton")
@@ -20,13 +21,14 @@ open.Text = "Aurora Hub"
 open.BackgroundColor3 = Color3.fromRGB(25,25,25)
 open.TextColor3 = Color3.new(1,1,1)
 open.Font = Enum.Font.GothamBold
+open.TextSize = 16
 Instance.new("UICorner",open)
 
 -- main frame
 local frame = Instance.new("Frame")
 frame.Parent = gui
-frame.Size = UDim2.new(0,360,0,260)
-frame.Position = UDim2.new(0.5,-180,0.5,-130)
+frame.Size = UDim2.new(0,340,0,240)
+frame.Position = UDim2.new(0.5,-170,0.5,-120)
 frame.BackgroundColor3 = Color3.fromRGB(20,20,30)
 frame.Visible = false
 Instance.new("UICorner",frame)
@@ -35,7 +37,7 @@ Instance.new("UICorner",frame)
 local logo = Instance.new("ImageLabel")
 logo.Parent = frame
 logo.Size = UDim2.new(0,70,0,70)
-logo.Position = UDim2.new(0.5,-35,0,5)
+logo.Position = UDim2.new(0.5,-35,0,10)
 logo.BackgroundTransparency = 1
 logo.Image = "rbxassetid://8982623704"
 
@@ -43,14 +45,14 @@ logo.Image = "rbxassetid://8982623704"
 local title = Instance.new("TextLabel")
 title.Parent = frame
 title.Size = UDim2.new(1,0,0,30)
-title.Position = UDim2.new(0,0,0,75)
+title.Position = UDim2.new(0,0,0,80)
 title.BackgroundTransparency = 1
 title.Text = "Aurora Hub | by tiktok trinhvanhai21"
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
 
--- tab
+-- toggle
 local toggle = Instance.new("TextButton")
 toggle.Parent = frame
 toggle.Size = UDim2.new(0,180,0,45)
@@ -59,6 +61,7 @@ toggle.Text = "Auto Parry : OFF"
 toggle.BackgroundColor3 = Color3.fromRGB(60,30,30)
 toggle.TextColor3 = Color3.new(1,1,1)
 toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 16
 Instance.new("UICorner",toggle)
 
 -- close
@@ -105,12 +108,12 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- toggle
+-- toggle state
 local Enabled = false
 
 toggle.MouseButton1Click:Connect(function()
 	Enabled = not Enabled
-	
+
 	if Enabled then
 		toggle.Text = "Auto Parry : ON"
 		toggle.BackgroundColor3 = Color3.fromRGB(30,70,40)
@@ -120,17 +123,16 @@ toggle.MouseButton1Click:Connect(function()
 	end
 end)
 
--- =========================
--- Copy Làm Chó Nhé 
--- =========================
+-- ===================
+-- CODE BẠN (GIỮ NGUYÊN)
+-- ===================
 
 local starterGUI = game:GetService("StarterGui")
-local player = game.Players.LocalPlayer
 
 wait(1)
 
 starterGUI:SetCore("SendNotification", {
-	Title = "AuroraHub",
+	Title = "NoEnemiesHub",
 	Text = "Auto Parry Executed (We also added visualizer.)",
 	Icon = "rbxassetid://135351041318579",
 	Duration = 10,
@@ -139,14 +141,14 @@ starterGUI:SetCore("SendNotification", {
 
 loadstring(game:HttpGet("https://scriptblox.com/raw/UPD-Blade-Ball-op-autoparry-with-visualizer-8652"))()
 
-local RunService = game:GetService("RunService") or game:FindFirstDescendant("RunService")
-local Players = game:GetService("Players") or game:FindFirstDescendant("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager") or game:FindFirstDescendant("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local Player = Players.LocalPlayer
 
 local Cooldown = tick()
-local IsParried = false
+local Parried = false
 local Connection = nil
 
 local function GetBall()
@@ -177,21 +179,25 @@ RunService.PreSimulation:Connect(function()
 
 	if not Enabled then return end
 
-	local Ball, HRP = GetBall(), Player.Character.HumanoidRootPart
+	local Ball = GetBall()
+	local HRP = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+
 	if not Ball or not HRP then
 		return
 	end
-	
+
 	local Speed = Ball.zoomies.VectorVelocity.Magnitude
 	local Distance = (HRP.Position - Ball.Position).Magnitude
-	
+
 	if Ball:GetAttribute("target") == Player.Name and not Parried and Distance / Speed <= 0.55 then
-		VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+
+		VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+
 		Parried = true
 		Cooldown = tick()
-		
+
 		if (tick() - Cooldown) >= 1 then
-			Partied = false
+			Parried = false
 		end
 	end
 end)
