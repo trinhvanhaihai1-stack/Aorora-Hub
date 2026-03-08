@@ -5,7 +5,7 @@ wait(1)
 
 starterGUI:SetCore("SendNotification", {
 	Title = "NoEnemiesHub",
-	Text = "Auto Parry Executed (We also added visualizer.)",
+	Text = "Auto Parry Executed (by tiktok: trinhvanhai21.)",
 	Icon = "rbxassetid://135351041318579",
 	Duration = 10,
         Button1 = "OK"
